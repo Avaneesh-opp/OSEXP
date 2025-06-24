@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AlertTriangle, CheckCircle, Network } from 'lucide-react';
 import AlgorithmCard from './ui/AlgorithmCard';
 import { detectDeadlock, bankerAlgorithm } from '../utils/deadlockManagementAlgorithms';
@@ -24,6 +24,68 @@ const DeadlockManagement: React.FC = () => {
   ]);
   
   const [results, setResults] = useState<any>(null);
+  
+  // Synchronize allocation and maxNeed arrays with processes and resources
+  useEffect(() => {
+    const n = parseInt(processes) || 3;
+    const m = parseInt(resources) || 3;
+    
+    // Ensure allocation array has correct size
+    setAllocation(prevAllocation => {
+      const newAllocation = [...prevAllocation];
+      
+      // Adjust number of rows (processes)
+      if (n > newAllocation.length) {
+        // Add new rows
+        for (let i = newAllocation.length; i < n; i++) {
+          newAllocation.push('0 '.repeat(m).trim());
+        }
+      } else if (n < newAllocation.length) {
+        // Remove excess rows
+        newAllocation.splice(n);
+      }
+      
+      // Adjust number of columns (resources) for each row
+      return newAllocation.map(row => {
+        const values = row.split(/\s+/);
+        if (values.length > m) {
+          return values.slice(0, m).join(' ');
+        } else if (values.length < m) {
+          const padding = Array(m - values.length).fill('0');
+          return [...values, ...padding].join(' ');
+        }
+        return row;
+      });
+    });
+    
+    // Ensure maxNeed array has correct size
+    setMaxNeed(prevMaxNeed => {
+      const newMaxNeed = [...prevMaxNeed];
+      
+      // Adjust number of rows (processes)
+      if (n > newMaxNeed.length) {
+        // Add new rows
+        for (let i = newMaxNeed.length; i < n; i++) {
+          newMaxNeed.push('0 '.repeat(m).trim());
+        }
+      } else if (n < newMaxNeed.length) {
+        // Remove excess rows
+        newMaxNeed.splice(n);
+      }
+      
+      // Adjust number of columns (resources) for each row
+      return newMaxNeed.map(row => {
+        const values = row.split(/\s+/);
+        if (values.length > m) {
+          return values.slice(0, m).join(' ');
+        } else if (values.length < m) {
+          const padding = Array(m - values.length).fill('0');
+          return [...values, ...padding].join(' ');
+        }
+        return row;
+      });
+    });
+  }, [processes, resources]);
   
   const calculateResults = () => {
     if (algorithm === 'rag') {
@@ -60,37 +122,14 @@ const DeadlockManagement: React.FC = () => {
   };
   
   const handleProcessesChange = (value: string) => {
-    const newCount = parseInt(value);
-    if (!isNaN(newCount) && newCount > 0) {
-      setProcesses(value);
-      
-      // Adjust allocation and maxNeed arrays
-      if (newCount > allocation.length) {
-        // Add new rows
-        const newAllocation = [...allocation];
-        const newMaxNeed = [...maxNeed];
-        const resourceCount = parseInt(resources) || 3;
-        
-        for (let i = allocation.length; i < newCount; i++) {
-          newAllocation.push('0 '.repeat(resourceCount).trim());
-          newMaxNeed.push('0 '.repeat(resourceCount).trim());
-        }
-        
-        setAllocation(newAllocation);
-        setMaxNeed(newMaxNeed);
-      } else if (newCount < allocation.length) {
-        // Remove excess rows
-        setAllocation(allocation.slice(0, newCount));
-        setMaxNeed(maxNeed.slice(0, newCount));
-      }
-    }
+    setProcesses(value);
   };
   
   const renderResourceInputs = () => {
     if (algorithm !== 'bankers') return null;
     
-    const n = parseInt(processes);
-    const m = parseInt(resources);
+    const n = parseInt(processes) || 3;
+    const m = parseInt(resources) || 3;
     
     return (
       <div className="mt-6">
