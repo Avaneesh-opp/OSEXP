@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { HardDrive, ArrowUpDown } from 'lucide-react';
 import { Line } from 'react-chartjs-2';
 import { 
@@ -38,35 +38,56 @@ const DiskScheduling: React.FC = () => {
   const [algorithm, setAlgorithm] = useState<string>('fcfs');
   const [results, setResults] = useState<any>(null);
   
+  // Reset results when component mounts or algorithm changes
+  useEffect(() => {
+    setResults(null);
+  }, [algorithm]);
+  
   const calculateResults = () => {
-    const requestsArray = requests.split(/\s+/).map(Number);
-    const head = parseInt(headPosition);
-    
-    let result;
-    switch (algorithm) {
-      case 'fcfs':
-        result = calculateFCFS(requestsArray, head);
-        break;
-      case 'sstf':
-        result = calculateSSTF(requestsArray, head);
-        break;
-      case 'scan':
-        result = calculateSCAN(requestsArray, head);
-        break;
-      case 'cscan':
-        result = calculateCSCAN(requestsArray, head);
-        break;
-      case 'look':
-        result = calculateLOOK(requestsArray, head);
-        break;
-      case 'clook':
-        result = calculateCLOOK(requestsArray, head);
-        break;
-      default:
-        result = null;
+    try {
+      const requestsArray = requests.split(/\s+/).map(Number).filter(n => !isNaN(n) && n >= 0);
+      const head = parseInt(headPosition);
+      
+      if (requestsArray.length === 0) {
+        alert('Please enter valid disk requests');
+        return;
+      }
+      
+      if (isNaN(head) || head < 0) {
+        alert('Please enter a valid head position');
+        return;
+      }
+      
+      let result;
+      switch (algorithm) {
+        case 'fcfs':
+          result = calculateFCFS(requestsArray, head);
+          break;
+        case 'sstf':
+          result = calculateSSTF(requestsArray, head);
+          break;
+        case 'scan':
+          result = calculateSCAN(requestsArray, head);
+          break;
+        case 'cscan':
+          result = calculateCSCAN(requestsArray, head);
+          break;
+        case 'look':
+          result = calculateLOOK(requestsArray, head);
+          break;
+        case 'clook':
+          result = calculateCLOOK(requestsArray, head);
+          break;
+        default:
+          result = null;
+      }
+      
+      setResults(result);
+    } catch (error) {
+      console.error('Error calculating disk scheduling results:', error);
+      alert('An error occurred while calculating results. Please check your input.');
+      setResults(null);
     }
-    
-    setResults(result);
   };
   
   const chartOptions = {
@@ -99,7 +120,7 @@ const DiskScheduling: React.FC = () => {
   };
 
   const renderChartData = () => {
-    if (!results) return null;
+    if (!results || !results.sequence) return null;
     
     return {
       labels: results.sequence.map((_: any, index: number) => index),
@@ -226,12 +247,12 @@ const DiskScheduling: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
               <div className="bg-blue-50 p-4 rounded-md">
                 <h3 className="font-medium text-blue-800 mb-1">Total Head Movement</h3>
-                <p className="text-2xl font-bold">{results.totalHeadMovement} cylinders</p>
+                <p className="text-2xl font-bold">{results.totalHeadMovement || 0} cylinders</p>
               </div>
               
               <div className="bg-green-50 p-4 rounded-md">
                 <h3 className="font-medium text-green-800 mb-1">Average Seek Time</h3>
-                <p className="text-2xl font-bold">{results.averageSeekTime.toFixed(2)} cylinders</p>
+                <p className="text-2xl font-bold">{results.averageSeekTime?.toFixed(2) || '0.00'} cylinders</p>
               </div>
             </div>
             
@@ -243,7 +264,7 @@ const DiskScheduling: React.FC = () => {
               <h3 className="font-medium mb-2">Seek Sequence</h3>
               <div className="bg-gray-50 p-4 rounded-md overflow-x-auto">
                 <p className="font-mono">
-                  {results.sequence.join(' → ')}
+                  {results.sequence?.join(' → ') || 'No sequence available'}
                 </p>
               </div>
             </div>

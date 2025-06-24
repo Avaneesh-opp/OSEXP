@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BarChart, Calendar, CheckSquare, Clock, Cpu } from 'lucide-react';
 import { Bar } from 'react-chartjs-2';
 import { 
@@ -30,29 +30,54 @@ const CPUScheduling: React.FC = () => {
   const [algorithm, setAlgorithm] = useState<string>('fcfs');
   const [results, setResults] = useState<any>(null);
   
+  // Reset results when component mounts or algorithm changes
+  useEffect(() => {
+    setResults(null);
+  }, [algorithm]);
+  
   const calculateResults = () => {
-    const burstArray = burstTimes.split(/\s+/).map(Number);
-    
-    let result;
-    switch (algorithm) {
-      case 'fcfs':
-        result = calculateFCFS(burstArray);
-        break;
-      case 'sjf':
-        result = calculateSJF(burstArray);
-        break;
-      case 'rr':
-        result = calculateRoundRobin(burstArray, parseInt(quantum));
-        break;
-      case 'priority':
-        const priorityArray = priorities.split(/\s+/).map(Number);
-        result = calculatePriority(burstArray, priorityArray);
-        break;
-      default:
-        result = null;
+    try {
+      const burstArray = burstTimes.split(/\s+/).map(Number).filter(n => !isNaN(n) && n > 0);
+      
+      if (burstArray.length === 0) {
+        alert('Please enter valid burst times');
+        return;
+      }
+      
+      let result;
+      switch (algorithm) {
+        case 'fcfs':
+          result = calculateFCFS(burstArray);
+          break;
+        case 'sjf':
+          result = calculateSJF(burstArray);
+          break;
+        case 'rr':
+          const timeQuantum = parseInt(quantum);
+          if (isNaN(timeQuantum) || timeQuantum <= 0) {
+            alert('Please enter a valid time quantum');
+            return;
+          }
+          result = calculateRoundRobin(burstArray, timeQuantum);
+          break;
+        case 'priority':
+          const priorityArray = priorities.split(/\s+/).map(Number).filter(n => !isNaN(n));
+          if (priorityArray.length !== burstArray.length) {
+            alert('Number of priorities must match number of processes');
+            return;
+          }
+          result = calculatePriority(burstArray, priorityArray);
+          break;
+        default:
+          result = null;
+      }
+      
+      setResults(result);
+    } catch (error) {
+      console.error('Error calculating CPU scheduling results:', error);
+      alert('An error occurred while calculating results. Please check your input.');
+      setResults(null);
     }
-    
-    setResults(result);
   };
   
   const chartOptions = {
@@ -119,11 +144,12 @@ const CPUScheduling: React.FC = () => {
           },
           label: function(context: any) {
             const processId = context.datasetIndex;
-            const process = results?.processes[processId];
+            const process = results?.processes?.[processId];
+            if (!process) return [];
             return [
-              `Burst Time: ${process?.burstTime} units`,
-              `Waiting Time: ${process?.waitingTime} units`,
-              `Turnaround Time: ${process?.turnaroundTime} units`
+              `Burst Time: ${process.burstTime} units`,
+              `Waiting Time: ${process.waitingTime} units`,
+              `Turnaround Time: ${process.turnaroundTime} units`
             ];
           }
         },
@@ -141,75 +167,7 @@ const CPUScheduling: React.FC = () => {
   };
 
   const renderGanttChart = () => {
-    if (!results) return null;
-    
-    // Create a more detailed timeline representation
-    const timeline: { processId: number; startTime: number; endTime: number }[] = [];
-    let currentTime = 0;
-    
-    // Build timeline based on algorithm
-    if (algorithm === 'rr') {
-      // For Round Robin, we need to handle time slices
-      const remainingTime = results.processes.map((p: any) => p.burstTime);
-      const quantum = parseInt(quantum);
-      let completed = 0;
-      
-      while (completed < results.processes.length) {
-        for (let i = 0; i < results.processes.length; i++) {
-          if (remainingTime[i] > 0) {
-            const executeTime = Math.min(remainingTime[i], quantum);
-            timeline.push({
-              processId: i,
-              startTime: currentTime,
-              endTime: currentTime + executeTime
-            });
-            currentTime += executeTime;
-            remainingTime[i] -= executeTime;
-            
-            if (remainingTime[i] === 0) {
-              completed++;
-            }
-          }
-        }
-      }
-    } else {
-      // For other algorithms, processes run to completion
-      results.processes.forEach((process: any, index: number) => {
-        timeline.push({
-          processId: process.id,
-          startTime: process.waitingTime,
-          endTime: process.waitingTime + process.burstTime
-        });
-      });
-    }
-    
-    // Create datasets for each process
-    const datasets = results.processes.map((process: any, index: number) => {
-      const processTimeline = timeline.filter(t => t.processId === process.id || t.processId === index);
-      const colors = [
-        'rgba(59, 130, 246, 0.8)',   // Blue
-        'rgba(16, 185, 129, 0.8)',   // Green
-        'rgba(245, 158, 11, 0.8)',   // Yellow
-        'rgba(239, 68, 68, 0.8)',    // Red
-        'rgba(139, 92, 246, 0.8)',   // Purple
-        'rgba(236, 72, 153, 0.8)',   // Pink
-        'rgba(14, 165, 233, 0.8)',   // Sky
-        'rgba(34, 197, 94, 0.8)'     // Emerald
-      ];
-      
-      return {
-        label: `Process P${process.id}`,
-        data: processTimeline.map(t => ({
-          x: [t.startTime, t.endTime],
-          y: `P${process.id}`
-        })),
-        backgroundColor: colors[index % colors.length],
-        borderColor: colors[index % colors.length].replace('0.8', '1'),
-        borderWidth: 2,
-        borderRadius: 4,
-        borderSkipped: false,
-      };
-    });
+    if (!results || !results.processes) return null;
     
     return {
       labels: results.processes.map((p: any) => `P${p.id}`),
@@ -253,7 +211,7 @@ const CPUScheduling: React.FC = () => {
   };
 
   const renderSimpleGanttChart = () => {
-    if (!results) return null;
+    if (!results || !results.processes) return null;
     
     // Create a simple visual timeline
     let currentTime = 0;
@@ -494,19 +452,19 @@ const CPUScheduling: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
               <div className="bg-blue-50 p-4 rounded-md">
                 <h3 className="font-medium text-blue-800 mb-1">Average Waiting Time</h3>
-                <p className="text-2xl font-bold">{results.averageWaitingTime.toFixed(2)}</p>
+                <p className="text-2xl font-bold">{results.averageWaitingTime?.toFixed(2) || '0.00'}</p>
                 <p className="text-xs text-blue-600 mt-1">Time processes wait in queue</p>
               </div>
               
               <div className="bg-green-50 p-4 rounded-md">
                 <h3 className="font-medium text-green-800 mb-1">Average Turnaround Time</h3>
-                <p className="text-2xl font-bold">{results.averageTurnaroundTime.toFixed(2)}</p>
+                <p className="text-2xl font-bold">{results.averageTurnaroundTime?.toFixed(2) || '0.00'}</p>
                 <p className="text-xs text-green-600 mt-1">Total time from arrival to completion</p>
               </div>
               
               <div className="bg-purple-50 p-4 rounded-md">
                 <h3 className="font-medium text-purple-800 mb-1">Total Execution Time</h3>
-                <p className="text-2xl font-bold">{results.totalExecutionTime}</p>
+                <p className="text-2xl font-bold">{results.totalExecutionTime || 0}</p>
                 <p className="text-xs text-purple-600 mt-1">Total time to complete all processes</p>
               </div>
             </div>
@@ -535,7 +493,7 @@ const CPUScheduling: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {results.processes.map((process: any, index: number) => (
+                    {results.processes?.map((process: any, index: number) => (
                       <tr key={index} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap font-medium">P{process.id}</td>
                         <td className="px-6 py-4 whitespace-nowrap">{process.burstTime} units</td>
@@ -545,7 +503,7 @@ const CPUScheduling: React.FC = () => {
                           <td className="px-6 py-4 whitespace-nowrap">{process.priority}</td>
                         )}
                       </tr>
-                    ))}
+                    )) || []}
                   </tbody>
                 </table>
               </div>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MemoryStick, Layers } from 'lucide-react';
 import { Bar } from 'react-chartjs-2';
 import { 
@@ -29,26 +29,47 @@ const MemoryManagement: React.FC = () => {
   const [algorithm, setAlgorithm] = useState<string>('firstfit');
   const [results, setResults] = useState<any>(null);
   
+  // Reset results when component mounts or algorithm changes
+  useEffect(() => {
+    setResults(null);
+  }, [algorithm]);
+  
   const calculateResults = () => {
-    const memoryBlocksArray = memoryBlocks.split(/\s+/).map(Number);
-    const processSizesArray = processSizes.split(/\s+/).map(Number);
-    
-    let result;
-    switch (algorithm) {
-      case 'firstfit':
-        result = firstFit(memoryBlocksArray, processSizesArray);
-        break;
-      case 'bestfit':
-        result = bestFit(memoryBlocksArray, processSizesArray);
-        break;
-      case 'worstfit':
-        result = worstFit(memoryBlocksArray, processSizesArray);
-        break;
-      default:
-        result = null;
+    try {
+      const memoryBlocksArray = memoryBlocks.split(/\s+/).map(Number).filter(n => !isNaN(n) && n > 0);
+      const processSizesArray = processSizes.split(/\s+/).map(Number).filter(n => !isNaN(n) && n > 0);
+      
+      if (memoryBlocksArray.length === 0) {
+        alert('Please enter valid memory block sizes');
+        return;
+      }
+      
+      if (processSizesArray.length === 0) {
+        alert('Please enter valid process sizes');
+        return;
+      }
+      
+      let result;
+      switch (algorithm) {
+        case 'firstfit':
+          result = firstFit(memoryBlocksArray, processSizesArray);
+          break;
+        case 'bestfit':
+          result = bestFit(memoryBlocksArray, processSizesArray);
+          break;
+        case 'worstfit':
+          result = worstFit(memoryBlocksArray, processSizesArray);
+          break;
+        default:
+          result = null;
+      }
+      
+      setResults(result);
+    } catch (error) {
+      console.error('Error calculating memory management results:', error);
+      alert('An error occurred while calculating results. Please check your input.');
+      setResults(null);
     }
-    
-    setResults(result);
   };
   
   const chartOptions = {
@@ -82,7 +103,7 @@ const MemoryManagement: React.FC = () => {
   };
 
   const renderChartData = () => {
-    if (!results) return null;
+    if (!results || !results.processes || !results.remainingBlocks) return null;
     
     const labels = [
       ...results.processes.map((_: any, index: number) => `Process ${index}`),
@@ -189,17 +210,17 @@ const MemoryManagement: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
               <div className="bg-blue-50 p-4 rounded-md">
                 <h3 className="font-medium text-blue-800 mb-1">Processes Allocated</h3>
-                <p className="text-2xl font-bold">{results.allocatedProcesses} / {results.totalProcesses}</p>
+                <p className="text-2xl font-bold">{results.allocatedProcesses || 0} / {results.totalProcesses || 0}</p>
               </div>
               
               <div className="bg-green-50 p-4 rounded-md">
                 <h3 className="font-medium text-green-800 mb-1">Memory Utilization</h3>
-                <p className="text-2xl font-bold">{results.memoryUtilization.toFixed(2)}%</p>
+                <p className="text-2xl font-bold">{results.memoryUtilization?.toFixed(2) || '0.00'}%</p>
               </div>
               
               <div className="bg-purple-50 p-4 rounded-md">
                 <h3 className="font-medium text-purple-800 mb-1">Internal Fragmentation</h3>
-                <p className="text-2xl font-bold">{results.internalFragmentation} units</p>
+                <p className="text-2xl font-bold">{results.internalFragmentation || 0} units</p>
               </div>
             </div>
             
@@ -220,7 +241,7 @@ const MemoryManagement: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {results.processes.map((process: any, index: number) => (
+                    {results.processes?.map((process: any, index: number) => (
                       <tr key={index}>
                         <td className="px-6 py-4 whitespace-nowrap">Process {index}</td>
                         <td className="px-6 py-4 whitespace-nowrap">{process.size}</td>
@@ -239,7 +260,7 @@ const MemoryManagement: React.FC = () => {
                           )}
                         </td>
                       </tr>
-                    ))}
+                    )) || []}
                   </tbody>
                 </table>
               </div>

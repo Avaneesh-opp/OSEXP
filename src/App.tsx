@@ -11,18 +11,23 @@ import './App.css';
 function App() {
   const [activeSection, setActiveSection] = useState<string>('home');
 
+  // Reset function to clear component states when switching sections
+  const handleSectionChange = (newSection: string) => {
+    setActiveSection(newSection);
+  };
+
   const renderSection = () => {
     switch (activeSection) {
       case 'cpu':
-        return <CPUScheduling />;
+        return <CPUScheduling key="cpu" />;
       case 'disk':
-        return <DiskScheduling />;
+        return <DiskScheduling key="disk" />;
       case 'memory':
-        return <MemoryManagement />;
+        return <MemoryManagement key="memory" />;
       case 'page':
-        return <PageReplacement />;
+        return <PageReplacement key="page" />;
       case 'deadlock':
-        return <DeadlockManagement />;
+        return <DeadlockManagement key="deadlock" />;
       default:
         return (
           <div className="flex flex-col items-center justify-center p-8 text-center">
@@ -43,7 +48,7 @@ function App() {
                 <div 
                   key={item.id}
                   className="bg-white rounded-lg shadow-md p-6 cursor-pointer transform transition-all duration-300 hover:scale-105 hover:shadow-lg"
-                  onClick={() => setActiveSection(item.id)}
+                  onClick={() => handleSectionChange(item.id)}
                 >
                   <h2 className="text-xl font-semibold mb-3">{item.title}</h2>
                   <p className="text-gray-600">{item.description}</p>
@@ -57,7 +62,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Navbar activeSection={activeSection} setActiveSection={setActiveSection} />
+      <Navbar activeSection={activeSection} setActiveSection={handleSectionChange} />
       <main className="container mx-auto py-8 px-4">
         {renderSection()}
       </main>

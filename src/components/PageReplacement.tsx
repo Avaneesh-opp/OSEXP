@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FileText, Layers } from 'lucide-react';
 import { Line } from 'react-chartjs-2';
 import { 
@@ -31,26 +31,47 @@ const PageReplacement: React.FC = () => {
   const [algorithm, setAlgorithm] = useState<string>('fifo');
   const [results, setResults] = useState<any>(null);
   
+  // Reset results when component mounts or algorithm changes
+  useEffect(() => {
+    setResults(null);
+  }, [algorithm]);
+  
   const calculateResults = () => {
-    const pages = referenceString.split(/\s+/).map(Number);
-    const capacity = parseInt(frameCapacity);
-    
-    let result;
-    switch (algorithm) {
-      case 'fifo':
-        result = fifo(pages, capacity);
-        break;
-      case 'lru':
-        result = lru(pages, capacity);
-        break;
-      case 'optimal':
-        result = optimal(pages, capacity);
-        break;
-      default:
-        result = null;
+    try {
+      const pages = referenceString.split(/\s+/).map(Number).filter(n => !isNaN(n) && n >= 0);
+      const capacity = parseInt(frameCapacity);
+      
+      if (pages.length === 0) {
+        alert('Please enter valid page reference string');
+        return;
+      }
+      
+      if (isNaN(capacity) || capacity <= 0) {
+        alert('Please enter a valid frame capacity');
+        return;
+      }
+      
+      let result;
+      switch (algorithm) {
+        case 'fifo':
+          result = fifo(pages, capacity);
+          break;
+        case 'lru':
+          result = lru(pages, capacity);
+          break;
+        case 'optimal':
+          result = optimal(pages, capacity);
+          break;
+        default:
+          result = null;
+      }
+      
+      setResults(result);
+    } catch (error) {
+      console.error('Error calculating page replacement results:', error);
+      alert('An error occurred while calculating results. Please check your input.');
+      setResults(null);
     }
-    
-    setResults(result);
   };
   
   const chartOptions = {
@@ -117,7 +138,7 @@ const PageReplacement: React.FC = () => {
   };
 
   const renderChartData = () => {
-    if (!results) return null;
+    if (!results || !results.pages) return null;
     
     return {
       labels: Array.from({ length: results.pages.length }, (_, i) => i),
@@ -135,7 +156,7 @@ const PageReplacement: React.FC = () => {
   };
 
   const renderFrameChartData = () => {
-    if (!results) return null;
+    if (!results || !results.frameHistory) return null;
     
     // Create datasets for each frame
     const datasets = [];
@@ -236,17 +257,17 @@ const PageReplacement: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
               <div className="bg-blue-50 p-4 rounded-md">
                 <h3 className="font-medium text-blue-800 mb-1">Page Faults</h3>
-                <p className="text-2xl font-bold">{results.pageFaults}</p>
+                <p className="text-2xl font-bold">{results.pageFaults || 0}</p>
               </div>
               
               <div className="bg-green-50 p-4 rounded-md">
                 <h3 className="font-medium text-green-800 mb-1">Page Fault Rate</h3>
-                <p className="text-2xl font-bold">{(results.pageFaults / results.pages.length * 100).toFixed(2)}%</p>
+                <p className="text-2xl font-bold">{results.pages ? (results.pageFaults / results.pages.length * 100).toFixed(2) : '0.00'}%</p>
               </div>
               
               <div className="bg-purple-50 p-4 rounded-md">
                 <h3 className="font-medium text-purple-800 mb-1">Page Hits</h3>
-                <p className="text-2xl font-bold">{results.pages.length - results.pageFaults}</p>
+                <p className="text-2xl font-bold">{results.pages ? results.pages.length - results.pageFaults : 0}</p>
               </div>
             </div>
             
@@ -262,7 +283,7 @@ const PageReplacement: React.FC = () => {
               <h3 className="font-medium mb-2">Page Fault Sequence</h3>
               <div className="bg-gray-50 p-4 rounded-md overflow-x-auto">
                 <div className="flex">
-                  {results.faultSequence.map((isFault: boolean, index: number) => (
+                  {results.faultSequence?.map((isFault: boolean, index: number) => (
                     <div key={index} className="flex flex-col items-center mx-1">
                       <span className="font-mono">{results.pages[index]}</span>
                       <span className={`w-6 h-6 flex items-center justify-center rounded-full mt-1 ${
@@ -273,7 +294,7 @@ const PageReplacement: React.FC = () => {
                         {isFault ? 'F' : 'H'}
                       </span>
                     </div>
-                  ))}
+                  )) || []}
                 </div>
               </div>
             </div>
